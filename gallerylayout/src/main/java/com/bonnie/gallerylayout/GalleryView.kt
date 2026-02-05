@@ -229,54 +229,11 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         // 假设用户希望文本具有这种渐变颜色。
         textView.setTextColor(Color.WHITE) // 兜底颜色
         
-        textView.addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
+                textView.addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
             val width = right - left
             if (width > 0) {
-                 val textPaint = textView.paint
-                 // 颜色: White(0.8) -> #ADF01D -> White(0.8)
-                 // 停止点: 0, 0.5, 1.0 (近似可见性)
-                 val colorWhite80 = Color.argb((255 * 0.8).toInt(), 255, 255, 255)
-                 val colorLime = "#ADF01D".toColorInt()
-                 
-                 // 创建一个更大的 Shader 以支持平移而不重复
-                 // 我们希望: 白 | 绿 | 白。
-                 // 为了让绿色部分移动穿过文本，我们需要一个覆盖该范围的 Shader。
-                 // Shader 模式 CLAMP 会重复边缘颜色。
-                 // If we make a shader exactly width size: [White, Green, White]
-                 // At start (translate -width): We see White (Right edge of shader clamped? No, Left edge of shader clamped).
-                 // Shader coordinates are local. 0 is left of text, width is right of text.
-                 // Gradient: 0(White) -> 0.5(Green) -> 1(White).
-                 
-                 // If we translate by -width:
-                 // Text Pixel 0 sees Shader Pixel -width (which is clamped to 0/White).
-                 // Text Pixel width sees Shader Pixel 0 (White).
-                 // Result: All White. CORRECT.
-                 
-                 // If we translate by 0:
-                 // Text Pixel 0 sees Shader Pixel 0.
-                 // Text Pixel width sees Shader Pixel width.
-                 // Result: Gradient Visible [White-Green-White]. INCORRECT (We want start state to be white).
-                 
-                 // So "Initial State" should be translated by -width? 
-                 // Let's re-verify logic in updateTextGradient.
-                 
-                 val shader = LinearGradient(
-                     0f, 0f, width.toFloat(), 0f,
-                     intArrayOf(colorWhite80, colorLime, colorWhite80),
-                     floatArrayOf(0f, 0.5f, 1f),
-                     Shader.TileMode.CLAMP
-                 )
-                 textPaint.shader = shader
-                 
-                 // Initial state: Hide Green.
-                 // Translate by -width:
-                 // Visible range [0, width] maps to Shader [-width, 0].
-                 // Shader at [-width, 0] is clamped to 0 (White). -> All White.
-                 val matrix = Matrix()
-                 matrix.setTranslate(-width.toFloat(), 0f)
-                 shader.setLocalMatrix(matrix)
-                 
-                 textView.invalidate()
+                 // 初始化或更新 Shader
+                 updateTextGradient(textView, -1f)
             }
         }
 
@@ -361,14 +318,36 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         updateTextGradient(textView2, -1f)
     }
     
+    // 缓存对象，避免在 onDraw 或频繁调用中创建
+    private val gradientMatrix = Matrix()
+    private val white80Color = Color.argb((255 * 0.8).toInt(), 255, 255, 255)
+    private val limeColor = "#ADF01D".toColorInt()
+    private val gradientColors = intArrayOf(white80Color, limeColor, white80Color)
+    private val gradientPositions = floatArrayOf(0f, 0.5f, 1f)
+    
+    // 缓存上一次的参数，避免重复创建 Shader
+    private var lastShaderWidth = 0f
+
     private fun updateTextGradient(textView: TextView, progress: Float) {
-        val paint = textView.paint
-        if (paint.shader == null) return
-        
         val width = textView.width.toFloat()
         if (width <= 0) return
+
+        val paint = textView.paint
         
-        val matrix = Matrix()
+        // 仅当宽度发生变化或 Shader 为空时才重新创建 Shader
+        if (paint.shader == null || width != lastShaderWidth) {
+            val shader = LinearGradient(
+                0f, 0f, width, 0f,
+                gradientColors,
+                gradientPositions,
+                Shader.TileMode.CLAMP
+            )
+            paint.shader = shader
+            lastShaderWidth = width
+        }
+        
+        // 重用 Matrix 对象
+        gradientMatrix.reset()
         
         // Shader 结构: 白(0.8) -> 绿 -> 白(0.8)
         // 我们假设绿色部分位于 Shader 的中间 (0.5)。
@@ -378,16 +357,16 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         
         // 如果 progress 为 -1，将其移出视图（最左侧）
         if (progress < 0) {
-            matrix.setTranslate(-width * 2, 0f)
+            gradientMatrix.setTranslate(-width * 2, 0f)
         } else {
              // 将进度 0..1 映射到平移 -width..+width
              // 实际上，我们要移动渐变的“窗口”。
              // 安全起见，让我们从 -width 平移到 width * 2。
              val translate = -width + (width * 3 * progress)
-             matrix.setTranslate(translate, 0f)
+             gradientMatrix.setTranslate(translate, 0f)
         }
         
-        paint.shader.setLocalMatrix(matrix)
+        paint.shader.setLocalMatrix(gradientMatrix)
         textView.invalidate()
     }
 
