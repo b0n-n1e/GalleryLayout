@@ -1,4 +1,4 @@
-package com.bonnie.gallerylayout
+package com.bonnie.gallerylayout.app
 
 import com.bumptech.glide.annotation.GlideModule
 import com.bumptech.glide.module.AppGlideModule

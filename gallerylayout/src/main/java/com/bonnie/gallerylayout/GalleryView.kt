@@ -11,7 +11,6 @@ import android.os.Build
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.View
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -431,6 +430,16 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         viewPager.adapter = adapter
     }
     
+    private var onItemClickListener: ((GalleryItem) -> Unit)? = null
+
+    /**
+     * 设置点击事件监听器
+     * 当用户点击处于中心位置的卡片时触发
+     */
+    fun setOnItemClickListener(listener: (GalleryItem) -> Unit) {
+        this.onItemClickListener = listener
+    }
+
     /**
      * 设置画廊数据并初始化视图
      */
@@ -438,7 +447,17 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         this.galleryItems = items
         if (items.isEmpty()) return
         
-        val adapter = GalleryAdapter(items)
+        val adapter = GalleryAdapter(items, onItemClick = { position ->
+            // 只有点击当前选中的 item 时才触发回调
+            val currentPosition = viewPager.currentItem
+            if (position == currentPosition) {
+                val realIndex = position % items.size
+                onItemClickListener?.invoke(items[realIndex])
+            } else {
+                // 如果点击的是侧边的卡片，可以选择滚动到该卡片（可选优化体验）
+                viewPager.currentItem = position
+            }
+        })
         viewPager.adapter = adapter
         
         if (items.size > 1) {
@@ -519,7 +538,26 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         super.onDetachedFromWindow()
         stopAutoPlay()
         removeCallbacks(resumeAutoPlayRunnable)
+        gradientAnimator?.cancel() // 防止流光动画导致的内存泄露
     }
     
     fun getViewPager(): ViewPager2 = viewPager
+
+    /**
+     * 获取当前选中的画廊项目
+     * @return 当前展示的 GalleryItem，如果列表为空则返回 null
+     */
+    fun getCurrentItem(): GalleryItem? {
+        if (galleryItems.isEmpty()) return null
+        val currentPosition = viewPager.currentItem
+        val realIndex = currentPosition % galleryItems.size
+        return galleryItems[realIndex]
+    }
+
+    /**
+     * 获取真实的数据项数量
+     */
+    fun getItemCount(): Int {
+        return galleryItems.size
+    }
 }

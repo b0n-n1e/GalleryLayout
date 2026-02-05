@@ -1,11 +1,13 @@
-package com.bonnie.gallerylayout
+package com.bonnie.gallerylayout.app
 
 import android.os.Bundle
 import android.util.DisplayMetrics
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.bonnie.gallerylayout.imageloader.GlideImageLoader
 import com.bonnie.gallerylayout.imageloader.ImageLoadManager
-import com.bonnie.gallerylayout.app.R // Explicit import for R
+import com.bonnie.gallerylayout.GalleryItem
+import com.bonnie.gallerylayout.GalleryView
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,5 +50,10 @@ class MainActivity : AppCompatActivity() {
         
         // 开启自动轮播，间隔 5000ms (按需求)
         galleryView.enableAutoPlay(5000L)
+
+        galleryView.setOnItemClickListener {
+            val currentItem = galleryView.getCurrentItem()
+            Toast.makeText(this, currentItem?.title, Toast.LENGTH_LONG).show()
+        }
     }
 }
