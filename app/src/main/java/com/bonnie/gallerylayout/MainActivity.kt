@@ -95,7 +95,7 @@ class MainActivity : AppCompatActivity() {
         val titleStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 54f, displayMetrics)
 
         titleViews.forEach { view ->
-            view.alpha = 0f
+            // view.alpha = 0f // Initial alpha handled in XML
             view.translationY = titleStartY
             
             val alphaAnim = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
@@ -126,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         // 透明度：0 到 100%
         // 位置：上移 49 px
         val btnStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 49f, displayMetrics)
-        btnExplore.alpha = 0f
+        // btnExplore.alpha = 0f // Initial alpha handled in XML
         btnExplore.translationY = btnStartY
         
         val btnAlphaAnim = ObjectAnimator.ofFloat(btnExplore, "alpha", 0f, 1f)
@@ -139,7 +139,9 @@ class MainActivity : AppCompatActivity() {
         btnSet.start()
 
         // 3. GalleryView 内部动画 (卡片 + 文案)
+        // 关键：先执行内部动画准备（设置子 View 透明），再显示容器，防止闪烁
         galleryView.playEntranceAnimation()
+        galleryView.alpha = 1f
     }
 
     private fun setupHeader() {
