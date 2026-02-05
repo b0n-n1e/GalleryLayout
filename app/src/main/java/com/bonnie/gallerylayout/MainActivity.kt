@@ -88,17 +88,17 @@ class MainActivity : AppCompatActivity() {
         val displayMetrics = resources.displayMetrics
 
         // 1. 标题动画 (welcome + AI 造型室)
-        // 透明度：60% 变为 100%
+        // 透明度：0% 变为 100% (原设计稿 60% 会导致视觉不同步)
         // 位置：上移54 到初始位置
         // 模糊 28 到 0
         val titleViews = listOf(tvWelcome, tvSubtitle)
         val titleStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 54f, displayMetrics)
 
         titleViews.forEach { view ->
-            view.alpha = 0.6f
+            view.alpha = 0f
             view.translationY = titleStartY
             
-            val alphaAnim = ObjectAnimator.ofFloat(view, "alpha", 0.6f, 1f)
+            val alphaAnim = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
             val transAnim = ObjectAnimator.ofFloat(view, "translationY", titleStartY, 0f)
             
             val animSet = AnimatorSet()

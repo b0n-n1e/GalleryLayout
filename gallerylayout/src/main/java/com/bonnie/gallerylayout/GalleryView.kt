@@ -618,12 +618,12 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         // textView1 目前显示的是当前的标题
         val titleView = textView1
         
-        // 文案初始状态
-        titleView.alpha = 0.6f
+        // 文案初始状态 (修改为 0f 以匹配其他组件节奏)
+        titleView.alpha = 0f
         val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 46f, resources.displayMetrics)
         titleView.translationY = startTransY
         
-        val titleAlphaAnim = ValueAnimator.ofFloat(0.6f, 1f)
+        val titleAlphaAnim = ValueAnimator.ofFloat(0f, 1f)
         titleAlphaAnim.addUpdateListener { titleView.alpha = it.animatedValue as Float }
         
         val titleTransAnim = ValueAnimator.ofFloat(startTransY, 0f)
