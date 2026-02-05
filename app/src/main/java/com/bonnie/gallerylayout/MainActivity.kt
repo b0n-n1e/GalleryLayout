@@ -1,7 +1,11 @@
 package com.bonnie.gallerylayout.app
 
+import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.os.Bundle
 import android.util.DisplayMetrics
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.bonnie.gallerylayout.imageloader.GlideImageLoader
@@ -18,6 +22,8 @@ class MainActivity : AppCompatActivity() {
         if (!ImageLoadManager.isInitialized()) {
             ImageLoadManager.injectImageLoader(GlideImageLoader())
         }
+
+        setupHeader()
 
         val galleryView = findViewById<GalleryView>(R.id.galleryView)
         
@@ -55,5 +61,30 @@ class MainActivity : AppCompatActivity() {
             val currentItem = galleryView.getCurrentItem()
             Toast.makeText(this, currentItem?.title, Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun setupHeader() {
+        val tvWelcome = findViewById<TextView>(R.id.tvWelcome)
+        // Set text to "Welcome" (Capitalized)
+        tvWelcome.text = "Welcome"
+
+        // Condensed font simulation
+        tvWelcome.textScaleX = 0.9f
+
+        // Apply Linear Gradient Shader to text
+        val paint = tvWelcome.paint
+        val width = paint.measureText(tvWelcome.text.toString())
+
+        val textShader = LinearGradient(
+            0f, 0f, width, 0f,
+            intArrayOf(
+                Color.parseColor("#FFFFFF"),
+                Color.parseColor("#454545"),
+                Color.parseColor("#FFFFFF")
+            ),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        tvWelcome.paint.shader = textShader
     }
 }
