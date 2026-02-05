@@ -1,10 +1,18 @@
 package com.bonnie.gallerylayout.app
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.LinearGradient
+import android.graphics.RenderEffect
 import android.graphics.Shader
+import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
+import android.util.TypedValue
+import android.view.View
+import android.view.animation.PathInterpolator
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -61,6 +69,77 @@ class MainActivity : AppCompatActivity() {
             val currentItem = galleryView.getCurrentItem()
             Toast.makeText(this, currentItem?.title, Toast.LENGTH_LONG).show()
         }
+
+        // Start Entrance Animation after layout
+        galleryView.post {
+            playEntranceAnimations()
+        }
+    }
+
+    private fun playEntranceAnimations() {
+        val galleryView = findViewById<GalleryView>(R.id.galleryView)
+        val tvWelcome = findViewById<TextView>(R.id.tvWelcome)
+        val tvSubtitle = findViewById<TextView>(R.id.tvSubtitle)
+        val btnExplore = findViewById<View>(R.id.btnExplore)
+
+        // Common animation parameters
+        val duration = 1800L
+        val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
+        val displayMetrics = resources.displayMetrics
+
+        // 1. 标题动画 (welcome + AI 造型室)
+        // 透明度：60% 变为 100%
+        // 位置：上移54 到初始位置
+        // 模糊 28 到 0
+        val titleViews = listOf(tvWelcome, tvSubtitle)
+        val titleStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 54f, displayMetrics)
+
+        titleViews.forEach { view ->
+            view.alpha = 0.6f
+            view.translationY = titleStartY
+            
+            val alphaAnim = ObjectAnimator.ofFloat(view, "alpha", 0.6f, 1f)
+            val transAnim = ObjectAnimator.ofFloat(view, "translationY", titleStartY, 0f)
+            
+            val animSet = AnimatorSet()
+            animSet.playTogether(alphaAnim, transAnim)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val blurAnim = ValueAnimator.ofFloat(28f, 0f)
+                blurAnim.addUpdateListener { 
+                    val radius = it.animatedValue as Float
+                    if (radius > 0) {
+                        view.setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP))
+                    } else {
+                        view.setRenderEffect(null)
+                    }
+                }
+                animSet.play(blurAnim)
+            }
+            
+            animSet.duration = duration
+            animSet.interpolator = interpolator
+            animSet.start()
+        }
+
+        // 2. 按钮动画
+        // 透明度：0 到 100%
+        // 位置：上移 49 px
+        val btnStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 49f, displayMetrics)
+        btnExplore.alpha = 0f
+        btnExplore.translationY = btnStartY
+        
+        val btnAlphaAnim = ObjectAnimator.ofFloat(btnExplore, "alpha", 0f, 1f)
+        val btnTransAnim = ObjectAnimator.ofFloat(btnExplore, "translationY", btnStartY, 0f)
+        
+        val btnSet = AnimatorSet()
+        btnSet.playTogether(btnAlphaAnim, btnTransAnim)
+        btnSet.duration = duration
+        btnSet.interpolator = interpolator
+        btnSet.start()
+
+        // 3. GalleryView 内部动画 (卡片 + 文案)
+        galleryView.playEntranceAnimation()
     }
 
     private fun setupHeader() {

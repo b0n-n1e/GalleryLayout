@@ -560,4 +560,98 @@ class GalleryView @JvmOverloads constructor(    context: Context,
     fun getItemCount(): Int {
         return galleryItems.size
     }
+
+    /**
+     * 播放开场动画
+     * 1. 卡片：透明度 0->1, 放大, 模糊 80->0
+     * 2. 文案：透明度 0.6->1, 上移 46dp->0, 模糊 28->0
+     */
+    fun playEntranceAnimation() {
+        val recyclerView = viewPager.getChildAt(0) as RecyclerView
+        val layoutManager = recyclerView.layoutManager ?: return
+        
+        // 找到中间的 View
+        val snapView = layoutManager.findViewByPosition(viewPager.currentItem) ?: return
+        
+        // 获取卡片 View (ImageContainer)
+        val cardView = snapView.findViewById<android.view.View>(R.id.cardView)
+        
+        // 获取文案 TextView
+        // 注意：文案是在 GalleryView 的 titleContainer 中，不是在 RecyclerView 的 item 中
+        // textView1 目前显示的是当前的标题
+        val titleView = textView1
+        
+        // 动画参数
+        val duration = 1800L
+        val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
+        
+        // 1. 卡片动画
+        if (cardView != null) {
+            cardView.alpha = 0f
+            cardView.scaleX = 0.8f
+            cardView.scaleY = 0.8f
+            
+            val alphaAnim = ValueAnimator.ofFloat(0f, 1f)
+            alphaAnim.addUpdateListener { cardView.alpha = it.animatedValue as Float }
+            
+            val scaleAnim = ValueAnimator.ofFloat(0.8f, 1f)
+            scaleAnim.addUpdateListener { 
+                val scale = it.animatedValue as Float
+                cardView.scaleX = scale
+                cardView.scaleY = scale
+            }
+            
+            // 模糊动画 (Android 12+)
+            val blurAnim = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                ValueAnimator.ofFloat(80f, 0f).apply {
+                    addUpdateListener { 
+                        val radius = it.animatedValue as Float
+                        if (radius > 0) {
+                            cardView.setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP))
+                        } else {
+                            cardView.setRenderEffect(null)
+                        }
+                    }
+                }
+            } else null
+            
+            val set = android.animation.AnimatorSet()
+            set.playTogether(listOfNotNull(alphaAnim, scaleAnim, blurAnim))
+            set.duration = duration
+            set.interpolator = interpolator
+            set.start()
+        }
+        
+        // 2. 文案动画
+        // 文案初始状态
+        titleView.alpha = 0.6f
+        val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 46f, resources.displayMetrics)
+        titleView.translationY = startTransY
+        
+        val titleAlphaAnim = ValueAnimator.ofFloat(0.6f, 1f)
+        titleAlphaAnim.addUpdateListener { titleView.alpha = it.animatedValue as Float }
+        
+        val titleTransAnim = ValueAnimator.ofFloat(startTransY, 0f)
+        titleTransAnim.addUpdateListener { titleView.translationY = it.animatedValue as Float }
+        
+        // 模糊动画 (Android 12+)
+        val titleBlurAnim = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ValueAnimator.ofFloat(28f, 0f).apply {
+                addUpdateListener { 
+                    val radius = it.animatedValue as Float
+                    if (radius > 0) {
+                        titleView.setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP))
+                    } else {
+                        titleView.setRenderEffect(null)
+                    }
+                }
+            }
+        } else null
+        
+        val titleSet = android.animation.AnimatorSet()
+        titleSet.playTogether(listOfNotNull(titleAlphaAnim, titleTransAnim, titleBlurAnim))
+        titleSet.duration = duration
+        titleSet.interpolator = interpolator
+        titleSet.start()
+    }
 }
