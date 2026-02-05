@@ -1,0 +1,5 @@
+com.bonnie.gallerylayout
+id cardView
+id imageView
+id overlayView
+layout item_gallery

@@ -1,0 +1,6 @@
+R_DEF: Internal format may change without notice
+local
+id cardView
+id imageView
+id overlayView
+layout item_gallery
