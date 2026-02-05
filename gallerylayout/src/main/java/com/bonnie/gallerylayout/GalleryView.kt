@@ -22,6 +22,8 @@ import android.util.TypedValue
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import androidx.core.graphics.toColorInt
+import android.graphics.drawable.Animatable
+import android.widget.ImageView
 
 class GalleryView @JvmOverloads constructor(    context: Context,
     attrs: AttributeSet? = null,
@@ -111,6 +113,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
                 // updateTitle(position) // 已移除，改用 onPageScrolled 处理
+                updateGifPlayback() // 页面选中时更新 GIF 状态
             }
 
             override fun onPageScrollStateChanged(state: Int) {
@@ -121,10 +124,13 @@ class GalleryView @JvmOverloads constructor(    context: Context,
                     gradientAnimator?.cancel() // 拖拽时取消流光动画
                     updateTextGradient(textView1, -1f)
                     updateTextGradient(textView2, -1f)
+                    // 拖拽时也可以考虑暂停所有 GIF，或保持现状
+                    // updateGifPlayback() 
                 } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
                     // 在 IDLE 状态下触发当前 TextView 的流光动画
                     // 此时 textView1 持有当前标题 (基于 updateTitleOnScroll 逻辑)
                     startGradientFlow(textView1)
+                    updateGifPlayback() // IDLE 状态确保只有中心 GIF 播放
                     
                     if (isAutoPlayEnabled) {
                         removeCallbacks(resumeAutoPlayRunnable)
@@ -135,6 +141,41 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         })
     }
     
+    /**
+     * 更新 GIF 播放状态
+     * 只有位于中心的 Item 才会播放 GIF，其他 Item 停止播放
+     */
+    private fun updateGifPlayback() {
+        val recyclerView = viewPager.getChildAt(0) as RecyclerView
+        val layoutManager = recyclerView.layoutManager ?: return
+        
+        // 获取当前中心位置
+        val currentPos = viewPager.currentItem
+        
+        // 遍历所有可见的 View
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i) ?: continue
+            val imageView = child.findViewById<ImageView>(R.id.imageView) ?: continue
+            val drawable = imageView.drawable
+            
+            if (drawable is Animatable) {
+                // 判断该 View 是否是当前的中心 Item
+                // 必须通过 layoutManager 获取该 view 的 adapter position
+                val adapterPos = layoutManager.getPosition(child)
+                
+                if (adapterPos == currentPos) {
+                    if (!drawable.isRunning) {
+                        drawable.start()
+                    }
+                } else {
+                    if (drawable.isRunning) {
+                        drawable.stop()
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * 设置卡片高度，用于定位文案
      * 文案将显示在卡片正下方
@@ -472,6 +513,9 @@ class GalleryView @JvmOverloads constructor(    context: Context,
             updateTitle(0)
         }
         
+        // 初始设置 GIF 状态 (延迟一下确保 View 已经布局)
+        post { updateGifPlayback() }
+
         if (isAutoPlayEnabled && items.size > 1) {
             startAutoPlay()
         }
