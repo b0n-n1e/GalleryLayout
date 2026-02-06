@@ -8,8 +8,18 @@ import android.graphics.LinearGradient
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
+import android.animation.Animator
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Matrix
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
-import android.util.DisplayMetrics
 import android.util.TypedValue
 import android.view.View
 import android.view.animation.PathInterpolator
@@ -18,10 +28,16 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.bonnie.gallerylayout.imageloader.GlideImageLoader
 import com.bonnie.gallerylayout.imageloader.ImageLoadManager
-import com.bonnie.gallerylayout.GalleryItem
-import com.bonnie.gallerylayout.GalleryView
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val ANIM_DURATION = 1800L
+        private const val TITLE_START_Y_DP = 54f
+        private const val BUTTON_START_Y_DP = 49f
+        private const val TITLE_BLUR_START = 28f
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -76,25 +92,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 执行入场动画
+     * 编排所有组件（标题、按钮、画廊）的入场顺序和效果
+     */
     private fun playEntranceAnimations() {
         val galleryView = findViewById<GalleryView>(R.id.galleryView)
         val tvWelcome = findViewById<TextView>(R.id.tvWelcome)
         val tvSubtitle = findViewById<TextView>(R.id.tvSubtitle)
         val btnExplore = findViewById<View>(R.id.btnExplore)
 
-        // Common animation parameters
-        val duration = 1800L
+        // 动画参数
         val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
         val displayMetrics = resources.displayMetrics
         
         val allAnimators = mutableListOf<Animator>()
 
-        // 1. 标题动画 (welcome + AI 造型室)
+        // 1. 标题动画 (Welcome + Subtitle)
         val titleViews = listOf(tvWelcome, tvSubtitle)
-        val titleStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 54f, displayMetrics)
+        val titleStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, TITLE_START_Y_DP, displayMetrics)
 
         titleViews.forEach { view ->
-            // view.alpha = 0f // Initial alpha handled in XML
+            // 初始状态已在 XML 中设为不可见 (alpha=0)
             view.translationY = titleStartY
             
             val alphaAnim = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
@@ -103,8 +122,9 @@ class MainActivity : AppCompatActivity() {
             val animSet = AnimatorSet()
             animSet.playTogether(alphaAnim, transAnim)
             
+            // 动态模糊 (Android 12+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val blurAnim = ValueAnimator.ofFloat(28f, 0f)
+                val blurAnim = ValueAnimator.ofFloat(TITLE_BLUR_START, 0f)
                 blurAnim.addUpdateListener { 
                     val radius = it.animatedValue as Float
                     if (radius > 0) {
@@ -118,9 +138,8 @@ class MainActivity : AppCompatActivity() {
             allAnimators.add(animSet)
         }
 
-        // 2. 按钮动画
-        val btnStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 49f, displayMetrics)
-        // btnExplore.alpha = 0f // Initial alpha handled in XML
+        // 2. 按钮动画 (Explore)
+        val btnStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, BUTTON_START_Y_DP, displayMetrics)
         btnExplore.translationY = btnStartY
         
         val btnAlphaAnim = ObjectAnimator.ofFloat(btnExplore, "alpha", 0f, 1f)
@@ -130,20 +149,18 @@ class MainActivity : AppCompatActivity() {
         btnSet.playTogether(btnAlphaAnim, btnTransAnim)
         allAnimators.add(btnSet)
 
-        // 3. GalleryView 内部动画
-        // 获取内部组合动画对象
+        // 3. 画廊动画 (GalleryView)
+        // 从 GalleryView 获取其内部构建的 Animator
         val galleryAnimator = galleryView.getEntranceAnimator()
         allAnimators.add(galleryAnimator)
         
-        // 4. 统一执行
+        // 4. 统一执行所有动画
         val masterSet = AnimatorSet()
         masterSet.playTogether(allAnimators)
-        masterSet.duration = duration
+        masterSet.duration = ANIM_DURATION
         masterSet.interpolator = interpolator
         
-        // 关键：动画开始时让 GalleryView 可见
-        // 注意：getEntranceAnimator 内部已经将子 View 设为初始状态 (alpha=0)，
-        // 所以此时显示 GalleryView 容器是安全的。
+        // 动画开始前，确保容器可见（内容已设为透明）
         galleryView.alpha = 1f 
         
         masterSet.start()
