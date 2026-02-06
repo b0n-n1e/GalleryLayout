@@ -30,6 +30,22 @@ class GalleryView @JvmOverloads constructor(    context: Context,
     defStyleAttr: Int = 0
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
+    companion object {
+        private const val DEFAULT_AUTO_PLAY_INTERVAL = 5000L
+        private const val RESUME_DELAY = 5000L
+        private const val GRADIENT_ANIM_DURATION = 1500L
+        private const val SCROLL_ANIM_DURATION = 1200L
+        private const val ENTRANCE_ANIM_DURATION = 1800L
+        private const val TITLE_MARGIN_TOP_DP = 20f
+        private const val TITLE_TEXT_SIZE_DP = 16f
+        private const val TITLE_LINE_HEIGHT_DP = 24f
+        private const val TITLE_TRANSLATION_Y_MAX_DP = 26f
+        private const val TITLE_BLUR_MAX = 40f
+        private const val ENTRANCE_CARD_BLUR_START = 80f
+        private const val ENTRANCE_TITLE_BLUR_START = 28f
+        private const val ENTRANCE_TITLE_TRANS_Y_DP = 46f
+    }
+
     private val viewPager: ViewPager2 = ViewPager2(context)
     
     // 标题视图，用于实现交叉淡入淡出动画
@@ -42,12 +58,11 @@ class GalleryView @JvmOverloads constructor(    context: Context,
     
     // 自动轮播相关
     private var isAutoPlayEnabled = false
-    private var autoPlayInterval = 5000L // 默认 5 秒
+    private var autoPlayInterval = DEFAULT_AUTO_PLAY_INTERVAL // 默认 5 秒
     private var currentAnimator: ValueAnimator? = null // 保存当前动画引用
     
     // 交互恢复相关
     private val resumeAutoPlayRunnable = Runnable { startAutoPlay() }
-    private val RESUME_DELAY = 5000L
 
     private val autoPlayRunnable = object : Runnable {
         override fun run() {
@@ -245,13 +260,16 @@ class GalleryView @JvmOverloads constructor(    context: Context,
 
     /**
      * 开启流光渐变动画
+     *
      * 逻辑说明：
-     * 1. 开始状态：渐变光效隐藏在左侧（偏移量为 -width），文案显示为纯白色。
-     * 2. 动画过程：渐变窗口从左向右移动（-width -> +width）。
+     * 1. **开始状态**：渐变光效隐藏在左侧（偏移量为 -width），文案显示为纯白色。
+     * 2. **动画过程**：渐变窗口从左向右移动（-width -> +width）。
      *    - 当偏移为 -width 时：Shader 右边缘对应文案左边缘（白色）。
      *    - 当偏移为 0 时：Shader 中心对应文案中心（绿色高光）。
      *    - 当偏移为 +width 时：Shader 左边缘对应文案右边缘（白色）。
-     * 3. 结束状态：渐变光效隐藏在右侧（偏移量为 +width），文案恢复为纯白色。
+     * 3. **结束状态**：渐变光效隐藏在右侧（偏移量为 +width），文案恢复为纯白色。
+     *
+     * @param textView 需要执行动画的 TextView
      */
     private fun startGradientFlow(textView: TextView) {
         gradientAnimator?.cancel()
@@ -260,7 +278,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         updateTextGradient(textView, -1f)
         
         val animator = ValueAnimator.ofFloat(0f, 1f)
-        animator.duration = 1500L // Duration
+        animator.duration = GRADIENT_ANIM_DURATION // Duration
         animator.interpolator = PathInterpolator(0.2f, 0f, 0.2f, 1f) // Smooth ease-in-out
         
         animator.addUpdateListener { animation ->
@@ -294,8 +312,8 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         textView2.text = nextTitle
 
         val density = context.resources.displayMetrics.density
-        val translationYMax = 26f * density 
-        val blurMax = 40f
+        val translationYMax = TITLE_TRANSLATION_Y_MAX_DP * density 
+        val blurMax = TITLE_BLUR_MAX
 
         // 1. 位置与透明度动画
         textView1.translationY = translationYMax * positionOffset
@@ -409,7 +427,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         val targetDistance = if (scrollDistance > 0) scrollDistance else width
 
         val animator = ValueAnimator.ofInt(0, targetDistance)
-        animator.duration = 1200L
+        animator.duration = SCROLL_ANIM_DURATION
         animator.interpolator = PathInterpolator(0.8f, 0.05f, 0.24f, 0.98f)
         
         var previousValue = 0
@@ -593,7 +611,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         val recyclerView = viewPager.getChildAt(0) as RecyclerView
         
         // 动画参数
-        val duration = 1800L
+        val duration = ENTRANCE_ANIM_DURATION
         val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
 
         // 1. 卡片动画 (遍历所有可见子 View)
@@ -617,7 +635,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
             
             // 模糊动画 (Android 12+)
             val blurAnim = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ValueAnimator.ofFloat(80f, 0f).apply {
+                ValueAnimator.ofFloat(ENTRANCE_CARD_BLUR_START, 0f).apply {
                     addUpdateListener { 
                         val radius = it.animatedValue as Float
                         if (radius > 0) {
@@ -643,7 +661,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         
         // 文案初始状态 (修改为 0f 以匹配其他组件节奏)
         titleView.alpha = 0f
-        val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 46f, resources.displayMetrics)
+        val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, ENTRANCE_TITLE_TRANS_Y_DP, resources.displayMetrics)
         titleView.translationY = startTransY
         
         val titleAlphaAnim = ValueAnimator.ofFloat(0f, 1f)
@@ -654,7 +672,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         
         // 模糊动画 (Android 12+)
         val titleBlurAnim = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ValueAnimator.ofFloat(28f, 0f).apply {
+            ValueAnimator.ofFloat(ENTRANCE_TITLE_BLUR_START, 0f).apply {
                 addUpdateListener { 
                     val radius = it.animatedValue as Float
                     if (radius > 0) {
