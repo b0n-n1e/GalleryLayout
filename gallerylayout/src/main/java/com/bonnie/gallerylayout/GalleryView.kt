@@ -24,6 +24,7 @@ import android.graphics.Matrix
 import androidx.core.graphics.toColorInt
 import android.graphics.drawable.Animatable
 import android.widget.ImageView
+import com.bonnie.gallerylayout.controller.*
 
 class GalleryView @JvmOverloads constructor(    context: Context,
     attrs: AttributeSet? = null,
@@ -35,16 +36,17 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         private const val RESUME_DELAY = 5000L
         private const val GRADIENT_ANIM_DURATION = 1500L
         private const val SCROLL_ANIM_DURATION = 1200L
-        private const val ENTRANCE_ANIM_DURATION = 1800L
         private const val TITLE_MARGIN_TOP_DP = 20f
         private const val TITLE_TEXT_SIZE_DP = 16f
         private const val TITLE_LINE_HEIGHT_DP = 24f
         private const val TITLE_TRANSLATION_Y_MAX_DP = 26f
         private const val TITLE_BLUR_MAX = 40f
-        private const val ENTRANCE_CARD_BLUR_START = 80f
-        private const val ENTRANCE_TITLE_BLUR_START = 28f
-        private const val ENTRANCE_TITLE_TRANS_Y_DP = 46f
     }
+
+    // Controllers (Delegates)
+    private val mediaController: IMediaController = DefaultMediaController()
+    private val entranceAnimator: IEntranceAnimator = DefaultEntranceAnimator()
+    private val textEffectController: ITextEffectController = GradientTextEffectController()
 
     private val viewPager: ViewPager2 = ViewPager2(context)
     
@@ -162,33 +164,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
      */
     private fun updateGifPlayback() {
         val recyclerView = viewPager.getChildAt(0) as RecyclerView
-        val layoutManager = recyclerView.layoutManager ?: return
-        
-        // 获取当前中心位置
-        val currentPos = viewPager.currentItem
-        
-        // 遍历所有可见的 View
-        for (i in 0 until recyclerView.childCount) {
-            val child = recyclerView.getChildAt(i) ?: continue
-            val imageView = child.findViewById<ImageView>(R.id.imageView) ?: continue
-            val drawable = imageView.drawable
-            
-            if (drawable is Animatable) {
-                // 判断该 View 是否是当前的中心 Item
-                // 必须通过 layoutManager 获取该 view 的 adapter position
-                val adapterPos = layoutManager.getPosition(child)
-                
-                if (adapterPos == currentPos) {
-                    if (!drawable.isRunning) {
-                        drawable.start()
-                    }
-                } else {
-                    if (drawable.isRunning) {
-                        drawable.stop()
-                    }
-                }
-            }
-        }
+        mediaController.updatePlaybackState(recyclerView, viewPager.currentItem)
     }
 
     /**
@@ -337,55 +313,17 @@ class GalleryView @JvmOverloads constructor(    context: Context,
     }
     
     // 缓存对象，避免在 onDraw 或频繁调用中创建
-    private val gradientMatrix = Matrix()
-    private val white80Color = Color.argb((255 * 0.8).toInt(), 255, 255, 255)
-    private val limeColor = "#ADF01D".toColorInt()
-    private val gradientColors = intArrayOf(white80Color, limeColor, white80Color)
-    private val gradientPositions = floatArrayOf(0f, 0.5f, 1f)
+    // private val gradientMatrix = Matrix() // Moved to GradientTextEffectController
+    // private val white80Color = Color.argb((255 * 0.8).toInt(), 255, 255, 255) // Moved
+    // private val limeColor = "#ADF01D".toColorInt() // Moved
+    // private val gradientColors = intArrayOf(white80Color, limeColor, white80Color) // Moved
+    // private val gradientPositions = floatArrayOf(0f, 0.5f, 1f) // Moved
     
     // 缓存上一次的参数，避免重复创建 Shader
-    private var lastShaderWidth = 0f
+    // private var lastShaderWidth = 0f // Moved
 
     private fun updateTextGradient(textView: TextView, progress: Float) {
-        val width = textView.width.toFloat()
-        if (width <= 0) return
-
-        val paint = textView.paint
-        
-        // 仅当宽度发生变化或 Shader 为空时才重新创建 Shader
-        if (paint.shader == null || width != lastShaderWidth) {
-            val shader = LinearGradient(
-                0f, 0f, width, 0f,
-                gradientColors,
-                gradientPositions,
-                Shader.TileMode.CLAMP
-            )
-            paint.shader = shader
-            lastShaderWidth = width
-        }
-        
-        // 重用 Matrix 对象
-        gradientMatrix.reset()
-        
-        // Shader 结构: 白(0.8) -> 绿 -> 白(0.8)
-        // 我们假设绿色部分位于 Shader 的中间 (0.5)。
-        // 为了从左向右扫过：
-        // 开始：绿色在最左侧 (-width)。
-        // 结束：绿色在最右侧 (+width)。
-        
-        // 如果 progress 为 -1，将其移出视图（最左侧）
-        if (progress < 0) {
-            gradientMatrix.setTranslate(-width * 2, 0f)
-        } else {
-             // 将进度 0..1 映射到平移 -width..+width
-             // 实际上，我们要移动渐变的“窗口”。
-             // 安全起见，让我们从 -width 平移到 width * 2。
-             val translate = -width + (width * 3 * progress)
-             gradientMatrix.setTranslate(translate, 0f)
-        }
-        
-        paint.shader.setLocalMatrix(gradientMatrix)
-        textView.invalidate()
+        textEffectController.updateTextGradient(textView, progress)
     }
 
     private fun updateTitle(position: Int) {
@@ -609,85 +547,6 @@ class GalleryView @JvmOverloads constructor(    context: Context,
      */
     fun playEntranceAnimation() {
         val recyclerView = viewPager.getChildAt(0) as RecyclerView
-        
-        // 动画参数
-        val duration = ENTRANCE_ANIM_DURATION
-        val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
-
-        // 1. 卡片动画 (遍历所有可见子 View)
-        for (i in 0 until recyclerView.childCount) {
-            val child = recyclerView.getChildAt(i) ?: continue
-            val cardView = child.findViewById<android.view.View>(R.id.cardView) ?: continue
-
-            cardView.alpha = 0f
-            cardView.scaleX = 0.8f
-            cardView.scaleY = 0.8f
-            
-            val alphaAnim = ValueAnimator.ofFloat(0f, 1f)
-            alphaAnim.addUpdateListener { cardView.alpha = it.animatedValue as Float }
-            
-            val scaleAnim = ValueAnimator.ofFloat(0.8f, 1f)
-            scaleAnim.addUpdateListener { 
-                val scale = it.animatedValue as Float
-                cardView.scaleX = scale
-                cardView.scaleY = scale
-            }
-            
-            // 模糊动画 (Android 12+)
-            val blurAnim = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ValueAnimator.ofFloat(ENTRANCE_CARD_BLUR_START, 0f).apply {
-                    addUpdateListener { 
-                        val radius = it.animatedValue as Float
-                        if (radius > 0) {
-                            cardView.setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP))
-                        } else {
-                            cardView.setRenderEffect(null)
-                        }
-                    }
-                }
-            } else null
-            
-            val set = android.animation.AnimatorSet()
-            set.playTogether(listOfNotNull(alphaAnim, scaleAnim, blurAnim))
-            set.duration = duration
-            set.interpolator = interpolator
-            set.start()
-        }
-        
-        // 2. 文案动画
-        // 注意：文案是在 GalleryView 的 titleContainer 中，不是在 RecyclerView 的 item 中
-        // textView1 目前显示的是当前的标题
-        val titleView = textView1
-        
-        // 文案初始状态 (修改为 0f 以匹配其他组件节奏)
-        titleView.alpha = 0f
-        val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, ENTRANCE_TITLE_TRANS_Y_DP, resources.displayMetrics)
-        titleView.translationY = startTransY
-        
-        val titleAlphaAnim = ValueAnimator.ofFloat(0f, 1f)
-        titleAlphaAnim.addUpdateListener { titleView.alpha = it.animatedValue as Float }
-        
-        val titleTransAnim = ValueAnimator.ofFloat(startTransY, 0f)
-        titleTransAnim.addUpdateListener { titleView.translationY = it.animatedValue as Float }
-        
-        // 模糊动画 (Android 12+)
-        val titleBlurAnim = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ValueAnimator.ofFloat(ENTRANCE_TITLE_BLUR_START, 0f).apply {
-                addUpdateListener { 
-                    val radius = it.animatedValue as Float
-                    if (radius > 0) {
-                        titleView.setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP))
-                    } else {
-                        titleView.setRenderEffect(null)
-                    }
-                }
-            }
-        } else null
-        
-        val titleSet = android.animation.AnimatorSet()
-        titleSet.playTogether(listOfNotNull(titleAlphaAnim, titleTransAnim, titleBlurAnim))
-        titleSet.duration = duration
-        titleSet.interpolator = interpolator
-        titleSet.start()
+        entranceAnimator.playAnimation(recyclerView, textView1)
     }
 }
