@@ -9,16 +9,6 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
 import android.animation.Animator
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
-import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Matrix
-import android.graphics.RenderEffect
-import android.graphics.Shader
-import android.graphics.Typeface
-import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
@@ -26,8 +16,12 @@ import android.view.animation.PathInterpolator
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.bonnie.gallerylayout.GalleryItem
+import com.bonnie.gallerylayout.GalleryView
 import com.bonnie.gallerylayout.imageloader.GlideImageLoader
 import com.bonnie.gallerylayout.imageloader.ImageLoadManager
+import androidx.core.graphics.toColorInt
+import com.bonnie.gallerylayout.app.R
 
 class MainActivity : AppCompatActivity() {
 
@@ -160,10 +154,15 @@ class MainActivity : AppCompatActivity() {
         masterSet.duration = ANIM_DURATION
         masterSet.interpolator = interpolator
         
-        // 动画开始前，确保容器可见（内容已设为透明）
+        // 关键：动画开始时让 GalleryView 可见
+        // 注意：getEntranceAnimator 内部已经将子 View 设为初始状态 (alpha=0)，
+        // 所以此时显示 GalleryView 容器是安全的。
         galleryView.alpha = 1f 
         
-        masterSet.start()
+        // 确保 Layout 完成后再开始动画，以便正确计算 Pivot
+        galleryView.post {
+            masterSet.start()
+        }
     }
 
     private fun setupHeader() {
@@ -181,9 +180,9 @@ class MainActivity : AppCompatActivity() {
         val textShader = LinearGradient(
             0f, 0f, width, 0f,
             intArrayOf(
-                Color.parseColor("#FFFFFF"),
-                Color.parseColor("#454545"),
-                Color.parseColor("#FFFFFF")
+                "#FFFFFF".toColorInt(),
+                "#454545".toColorInt(),
+                "#FFFFFF".toColorInt()
             ),
             floatArrayOf(0f, 0.5f, 1f),
             Shader.TileMode.CLAMP
