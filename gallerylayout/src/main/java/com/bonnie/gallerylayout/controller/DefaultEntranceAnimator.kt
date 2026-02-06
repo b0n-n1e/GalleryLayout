@@ -9,7 +9,6 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
 import android.util.TypedValue
-import android.view.View
 import android.view.animation.PathInterpolator
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -27,6 +26,7 @@ class DefaultEntranceAnimator : IEntranceAnimator {
         private const val TITLE_BLUR_START = 28f
         private const val TITLE_TRANS_Y_DP = 46f
         private const val WHEEL_SCALE_START = 0.4f
+        private const val WHEEL_TRANS_Y_DP = 100f
     }
 
     override fun createEntranceAnimator(recyclerView: RecyclerView, titleView: TextView): Animator {
@@ -34,44 +34,31 @@ class DefaultEntranceAnimator : IEntranceAnimator {
         val mainSet = AnimatorSet()
         val animators = mutableListOf<Animator>()
 
-        // 1. 整体轮盘放大动画 (RecyclerView Scale)
+        // 1. 整体轮盘放大动画 (RecyclerView Scale & Translation)
         // 初始状态
         recyclerView.scaleX = WHEEL_SCALE_START
         recyclerView.scaleY = WHEEL_SCALE_START
         
+        val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, WHEEL_TRANS_Y_DP, recyclerView.context.resources.displayMetrics)
+        recyclerView.translationY = startTransY
+        
         val wheelScaleX = ObjectAnimator.ofFloat(recyclerView, "scaleX", WHEEL_SCALE_START, 1f)
         val wheelScaleY = ObjectAnimator.ofFloat(recyclerView, "scaleY", WHEEL_SCALE_START, 1f)
+        val wheelTransY = ObjectAnimator.ofFloat(recyclerView, "translationY", startTransY, 0f)
         
-        // 关键：在动画开始前计算并设置 Pivot (锚点)
-        // 目标：PivotY 应为中心 Item 的底部
+        // 关键：设置 Pivot 为底部中心
         val pivotListener = object : AnimatorListenerAdapter() {
             override fun onAnimationStart(animation: Animator) {
-                // 寻找视觉中心的 Child
-                val centerChild = findCenterChild(recyclerView)
-                if (centerChild != null) {
-                    val cardView = centerChild.findViewById<View>(R.id.cardView)
-                    if (cardView != null) {
-                        // 计算 CardView 底部在 RecyclerView 坐标系中的位置
-                        // top/bottom 是相对于 parent (RecyclerView) 的
-                        // cardView 是 child 的子 View，cardView 在 child 中居中
-                        // 所以 cardView 的底部位置 = child.top + cardView.bottom
-                        val pivotY = (centerChild.top + cardView.bottom).toFloat()
-                        
-                        recyclerView.pivotX = recyclerView.width / 2f
-                        recyclerView.pivotY = pivotY
-                    }
-                } else {
-                    // Fallback: 如果找不到 child (例如尚未 layout)，使用中心偏下位置估算
-                    recyclerView.pivotX = recyclerView.width / 2f
-                    recyclerView.pivotY = recyclerView.height * 0.8f 
-                }
+                recyclerView.pivotX = recyclerView.width / 2f
+                recyclerView.pivotY = recyclerView.height.toFloat()
             }
         }
         wheelScaleX.addListener(pivotListener)
         animators.add(wheelScaleX)
         animators.add(wheelScaleY)
+        animators.add(wheelTransY)
 
-        // 2. 卡片动画 (透明度 & 模糊) - 移除独立的缩放
+        // 2. 卡片动画 (透明度 & 模糊)
         for (i in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(i) ?: continue
             val cardView = child.findViewById<android.view.View>(R.id.cardView) ?: continue
@@ -106,13 +93,13 @@ class DefaultEntranceAnimator : IEntranceAnimator {
         
         // 文案初始状态
         titleView.alpha = 0f
-        val startTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, TITLE_TRANS_Y_DP, context.resources.displayMetrics)
-        titleView.translationY = startTransY
+        val titleStartTransY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, TITLE_TRANS_Y_DP, context.resources.displayMetrics)
+        titleView.translationY = titleStartTransY
         
         val titleAlphaAnim = ValueAnimator.ofFloat(0f, 1f)
         titleAlphaAnim.addUpdateListener { titleView.alpha = it.animatedValue as Float }
         
-        val titleTransAnim = ValueAnimator.ofFloat(startTransY, 0f)
+        val titleTransAnim = ValueAnimator.ofFloat(titleStartTransY, 0f)
         titleTransAnim.addUpdateListener { titleView.translationY = it.animatedValue as Float }
         
         // 模糊动画 (Android 12+)
@@ -138,26 +125,5 @@ class DefaultEntranceAnimator : IEntranceAnimator {
         mainSet.interpolator = interpolator
         
         return mainSet
-    }
-
-    private fun findCenterChild(recyclerView: RecyclerView): View? {
-        val centerX = recyclerView.width / 2
-        val centerY = recyclerView.height / 2
-        var minDistance = Int.MAX_VALUE
-        var centerView: View? = null
-
-        for (i in 0 until recyclerView.childCount) {
-            val child = recyclerView.getChildAt(i)
-            val childCenterX = (child.left + child.right) / 2
-            val childCenterY = (child.top + child.bottom) / 2
-            // 简单计算距离中心的欧几里得距离 (实际上主要是 Y 轴，因为 X 轴都是居中的)
-            val distance = Math.abs(childCenterY - centerY)
-            
-            if (distance < minDistance) {
-                minDistance = distance
-                centerView = child
-            }
-        }
-        return centerView
     }
 }
