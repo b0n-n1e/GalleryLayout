@@ -17,13 +17,11 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback
 import android.graphics.Typeface
 import android.util.TypedValue
-import android.graphics.LinearGradient
-import android.graphics.Matrix
-import androidx.core.graphics.toColorInt
-import android.graphics.drawable.Animatable
-import android.widget.ImageView
+import androidx.viewpager2.widget.ViewPager2.SCROLL_STATE_IDLE
+import androidx.viewpager2.widget.ViewPager2.SCROLL_STATE_DRAGGING
 import com.bonnie.gallerylayout.controller.*
 
 class GalleryView @JvmOverloads constructor(    context: Context,
@@ -121,7 +119,7 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         this.clipChildren = false
         
         // 3. 注册页面变更回调
-        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+        viewPager.registerOnPageChangeCallback(object : OnPageChangeCallback() {
             override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
                 super.onPageScrolled(position, positionOffset, positionOffsetPixels)
                 updateTitleOnScroll(position, positionOffset)
@@ -129,30 +127,34 @@ class GalleryView @JvmOverloads constructor(    context: Context,
 
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
-                // updateTitle(position) // 已移除，改用 onPageScrolled 处理
                 updateGifPlayback() // 页面选中时更新 GIF 状态
             }
 
             override fun onPageScrollStateChanged(state: Int) {
                 super.onPageScrollStateChanged(state)
-                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
-                    stopAutoPlay()
-                    removeCallbacks(resumeAutoPlayRunnable)
-                    gradientAnimator?.cancel() // 拖拽时取消流光动画
-                    updateTextGradient(textView1, -1f)
-                    updateTextGradient(textView2, -1f)
-                    // 拖拽时也可以考虑暂停所有 GIF，或保持现状
-                    // updateGifPlayback() 
-                } else if (state == ViewPager2.SCROLL_STATE_IDLE) {
-                    // 在 IDLE 状态下触发当前 TextView 的流光动画
-                    // 此时 textView1 持有当前标题 (基于 updateTitleOnScroll 逻辑)
-                    startGradientFlow(textView1)
-                    updateGifPlayback() // IDLE 状态确保只有中心 GIF 播放
-                    
-                    if (isAutoPlayEnabled) {
+                when(state){
+                    SCROLL_STATE_DRAGGING->{
+                        stopAutoPlay()
                         removeCallbacks(resumeAutoPlayRunnable)
-                        postDelayed(resumeAutoPlayRunnable, RESUME_DELAY)
+                        gradientAnimator?.cancel() // 拖拽时取消流光动画
+                        updateTextGradient(textView1, -1f)
+                        updateTextGradient(textView2, -1f)
+                        // 拖拽时也可以考虑暂停所有 GIF，或保持现状
+                        // updateGifPlayback()
                     }
+                    SCROLL_STATE_IDLE ->{
+                        // 在 IDLE 状态下触发当前 TextView 的流光动画
+                        // 此时 textView1 持有当前标题 (基于 updateTitleOnScroll 逻辑)
+                        startGradientFlow(textView1)
+                        updateGifPlayback() // IDLE 状态确保只有中心 GIF 播放
+
+                        if (isAutoPlayEnabled) {
+                            removeCallbacks(resumeAutoPlayRunnable)
+                            postDelayed(resumeAutoPlayRunnable, RESUME_DELAY)
+                        }
+                    }
+
+                    else -> {}
                 }
             }
         })
@@ -541,12 +543,13 @@ class GalleryView @JvmOverloads constructor(    context: Context,
     }
 
     /**
-     * 播放开场动画
+     * 获取入场动画对象
      * 1. 卡片：透明度 0->1, 放大, 模糊 80->0
      * 2. 文案：透明度 0.6->1, 上移 46dp->0, 模糊 28->0
+     * @return Animator 对象，由外部负责 start
      */
-    fun playEntranceAnimation() {
+    fun getEntranceAnimator(): Animator {
         val recyclerView = viewPager.getChildAt(0) as RecyclerView
-        entranceAnimator.playAnimation(recyclerView, textView1)
+        return entranceAnimator.createEntranceAnimator(recyclerView, textView1)
     }
 }

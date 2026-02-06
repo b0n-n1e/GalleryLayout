@@ -86,11 +86,10 @@ class MainActivity : AppCompatActivity() {
         val duration = 1800L
         val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
         val displayMetrics = resources.displayMetrics
+        
+        val allAnimators = mutableListOf<Animator>()
 
         // 1. 标题动画 (welcome + AI 造型室)
-        // 透明度：0% 变为 100% (原设计稿 60% 会导致视觉不同步)
-        // 位置：上移54 到初始位置
-        // 模糊 28 到 0
         val titleViews = listOf(tvWelcome, tvSubtitle)
         val titleStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 54f, displayMetrics)
 
@@ -116,15 +115,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 animSet.play(blurAnim)
             }
-            
-            animSet.duration = duration
-            animSet.interpolator = interpolator
-            animSet.start()
+            allAnimators.add(animSet)
         }
 
         // 2. 按钮动画
-        // 透明度：0 到 100%
-        // 位置：上移 49 px
         val btnStartY = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 49f, displayMetrics)
         // btnExplore.alpha = 0f // Initial alpha handled in XML
         btnExplore.translationY = btnStartY
@@ -134,14 +128,25 @@ class MainActivity : AppCompatActivity() {
         
         val btnSet = AnimatorSet()
         btnSet.playTogether(btnAlphaAnim, btnTransAnim)
-        btnSet.duration = duration
-        btnSet.interpolator = interpolator
-        btnSet.start()
+        allAnimators.add(btnSet)
 
-        // 3. GalleryView 内部动画 (卡片 + 文案)
-        // 关键：先执行内部动画准备（设置子 View 透明），再显示容器，防止闪烁
-        galleryView.playEntranceAnimation()
-        galleryView.alpha = 1f
+        // 3. GalleryView 内部动画
+        // 获取内部组合动画对象
+        val galleryAnimator = galleryView.getEntranceAnimator()
+        allAnimators.add(galleryAnimator)
+        
+        // 4. 统一执行
+        val masterSet = AnimatorSet()
+        masterSet.playTogether(allAnimators)
+        masterSet.duration = duration
+        masterSet.interpolator = interpolator
+        
+        // 关键：动画开始时让 GalleryView 可见
+        // 注意：getEntranceAnimator 内部已经将子 View 设为初始状态 (alpha=0)，
+        // 所以此时显示 GalleryView 容器是安全的。
+        galleryView.alpha = 1f 
+        
+        masterSet.start()
     }
 
     private fun setupHeader() {

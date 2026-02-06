@@ -1,5 +1,7 @@
 package com.bonnie.gallerylayout.controller
 
+import android.animation.Animator
+import android.animation.AnimatorSet
 import android.animation.ValueAnimator
 import android.graphics.RenderEffect
 import android.graphics.Shader
@@ -23,8 +25,10 @@ class DefaultEntranceAnimator : IEntranceAnimator {
         private const val TITLE_TRANS_Y_DP = 46f
     }
 
-    override fun playAnimation(recyclerView: RecyclerView, titleView: TextView) {
+    override fun createEntranceAnimator(recyclerView: RecyclerView, titleView: TextView): Animator {
         val interpolator = PathInterpolator(0.74f, 0f, 0.24f, 1f)
+        val mainSet = AnimatorSet()
+        val animators = mutableListOf<Animator>()
 
         // 1. 卡片动画 (遍历所有可见子 View)
         for (i in 0 until recyclerView.childCount) {
@@ -59,11 +63,9 @@ class DefaultEntranceAnimator : IEntranceAnimator {
                 }
             } else null
             
-            val set = android.animation.AnimatorSet()
-            set.playTogether(listOfNotNull(alphaAnim, scaleAnim, blurAnim))
-            set.duration = ANIM_DURATION
-            set.interpolator = interpolator
-            set.start()
+            val itemSet = AnimatorSet()
+            itemSet.playTogether(listOfNotNull(alphaAnim, scaleAnim, blurAnim))
+            animators.add(itemSet)
         }
         
         // 2. 文案动画
@@ -94,10 +96,14 @@ class DefaultEntranceAnimator : IEntranceAnimator {
             }
         } else null
         
-        val titleSet = android.animation.AnimatorSet()
+        val titleSet = AnimatorSet()
         titleSet.playTogether(listOfNotNull(titleAlphaAnim, titleTransAnim, titleBlurAnim))
-        titleSet.duration = ANIM_DURATION
-        titleSet.interpolator = interpolator
-        titleSet.start()
+        animators.add(titleSet)
+        
+        mainSet.playTogether(animators)
+        mainSet.duration = ANIM_DURATION
+        mainSet.interpolator = interpolator
+        
+        return mainSet
     }
 }
