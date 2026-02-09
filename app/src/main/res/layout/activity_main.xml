@@ -65,15 +65,34 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="探索一下"
-            android:textColor="#000000"
-            android:textSize="14sp"
-            android:gravity="center"
-            android:textStyle="bold"
-            android:includeFontPadding="false"/>
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/tvButton1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:text="探索一下"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:textStyle="bold"
+                android:includeFontPadding="false"/>
+
+            <TextView
+                android:id="@+id/tvButton2"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:text="探索一下"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:textStyle="bold"
+                android:includeFontPadding="false"
+                android:alpha="0"
+                android:visibility="invisible"/>
+        </FrameLayout>
 
     </androidx.cardview.widget.CardView>
 

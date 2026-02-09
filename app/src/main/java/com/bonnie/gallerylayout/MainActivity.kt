@@ -30,60 +30,74 @@ class MainActivity : AppCompatActivity() {
         private const val TITLE_START_Y_DP = 54f
         private const val BUTTON_START_Y_DP = 49f
         private const val TITLE_BLUR_START = 28f
+        private const val BUTTON_TRANSLATION_Y_MAX_DP = 10f // 按钮文字动画位移
+        private const val BUTTON_BLUR_MAX = 10f
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize ImageLoadManager
-        if (!ImageLoadManager.isInitialized()) {
-            ImageLoadManager.injectImageLoader(GlideImageLoader())
-        }
-
-        setupHeader()
+        // Generate data with button text
+        val galleryItems = listOf(
+            GalleryItem("https://p3-dcd.byteimg.com/tos-cn-i-qvj2lq49k0/2776c53e05a044249a2a792429497e74~tplv-qvj2lq49k0-image.image", "优雅职场风", "立即体验"),
+            GalleryItem("https://p3-dcd.byteimg.com/tos-cn-i-qvj2lq49k0/a746a5f777c943779f42a927a77d7d24~tplv-qvj2lq49k0-image.image", "休闲运动风", "查看详情"),
+            GalleryItem("https://p3-dcd.byteimg.com/tos-cn-i-qvj2lq49k0/a746a5f777c943779f42a927a77d7d24~tplv-qvj2lq49k0-image.image", "浪漫约会风", "去试试"),
+            GalleryItem("https://p3-dcd.byteimg.com/tos-cn-i-qvj2lq49k0/2776c53e05a044249a2a792429497e74~tplv-qvj2lq49k0-image.image", "酷飒街头风", "解锁造型"),
+            GalleryItem("https://p3-dcd.byteimg.com/tos-cn-i-qvj2lq49k0/2776c53e05a044249a2a792429497e74~tplv-qvj2lq49k0-image.image", "温婉居家风", "立即查看"),
+            GalleryItem("https://p3-dcd.byteimg.com/tos-cn-i-qvj2lq49k0/a746a5f777c943779f42a927a77d7d24~tplv-qvj2lq49k0-image.image", "复古文艺风", "开启探索")
+        )
 
         val galleryView = findViewById<GalleryView>(R.id.galleryView)
+        galleryView.setGalleryData(galleryItems)
         
-        // 模拟数据 (包含 GIF 和 标题)
-        val items = listOf(
-            GalleryItem(
-                "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDdtY2J6eHl5eGZ4Z3J5eGZ4Z3J5eGZ4Z3J5eGZ4Z3J5eCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L1R1TVThqceQnF9h8u/giphy.gif",
-                "Cool GIF Animation"
-            ),
-            GalleryItem("https://picsum.photos/id/10/800/1200", "Forest Landscape"),
-            GalleryItem("https://picsum.photos/id/20/800/1200", "Office Setup"),
-            GalleryItem("https://picsum.photos/id/30/800/1200", "Coffee Mug"),
-            GalleryItem("https://picsum.photos/id/40/800/1200", "Cat Portrait"),
-            GalleryItem("https://picsum.photos/id/50/800/1200", "City Street")
-        )
+        // 设置滚动监听，实现按钮文字联动动画
+        galleryView.setOnScrollListener(object : GalleryView.OnScrollListener {
+            override fun onScroll(position: Int, positionOffset: Float, currentItem: GalleryItem?, nextItem: GalleryItem?) {
+                updateButtonTextAnimation(positionOffset, currentItem?.buttonText, nextItem?.buttonText)
+            }
+        })
+
+        // Apply text styles
+        setupHeader()
         
-        galleryView.setGalleryData(items)
+        // Start entrance animations
+        playEntranceAnimations()
+    }
+
+    private fun updateButtonTextAnimation(positionOffset: Float, currentText: String?, nextText: String?) {
+        val tvButton1 = findViewById<TextView>(R.id.tvButton1)
+        val tvButton2 = findViewById<TextView>(R.id.tvButton2)
         
-        // 动态计算 Padding 以匹配 "焦点卡片 200px (对应设计稿)" 的视觉要求
+        tvButton1.text = currentText ?: ""
+        tvButton2.text = nextText ?: ""
+        
         val displayMetrics = resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val cardWidth = (screenWidth * 0.6f).toInt()
-        val padding = (screenWidth - cardWidth) / 2
+        val translationYMax = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, BUTTON_TRANSLATION_Y_MAX_DP, displayMetrics)
         
-        galleryView.setPagePadding(padding)
+        // 动画逻辑与 Title 保持一致：
+        // 当前文字(tvButton1): 向上移动，透明度降低
+        // 下一个文字(tvButton2): 从下向上移动，透明度增加
         
-        // Calculate card height based on aspect ratio 200:274 and pass to GalleryView
-        val cardHeight = (cardWidth * 274f / 200f).toInt()
-        galleryView.setCardHeight(cardHeight)
+        tvButton1.translationY = -translationYMax * positionOffset
+        tvButton1.alpha = 1f - positionOffset
         
-        // 开启自动轮播，间隔 5000ms (按需求)
-        galleryView.enableAutoPlay(5000L)
-
-        galleryView.setOnItemClickListener {
-            val currentItem = galleryView.getCurrentItem()
-            Toast.makeText(this, currentItem?.title, Toast.LENGTH_LONG).show()
+        tvButton2.translationY = translationYMax * (1f - positionOffset)
+        tvButton2.alpha = positionOffset
+        
+        // 动态模糊 (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val blurMax = BUTTON_BLUR_MAX
+            val blur1 = blurMax * positionOffset
+            val blur2 = blurMax * (1f - positionOffset)
+            
+            tvButton1.setRenderEffect(if (blur1 > 0) RenderEffect.createBlurEffect(blur1, blur1, Shader.TileMode.CLAMP) else null)
+            tvButton2.setRenderEffect(if (blur2 > 0) RenderEffect.createBlurEffect(blur2, blur2, Shader.TileMode.CLAMP) else null)
         }
-
-        // Start Entrance Animation after layout
-        galleryView.post {
-            playEntranceAnimations()
-        }
+        
+        // 确保可见性状态
+        tvButton1.visibility = View.VISIBLE
+        tvButton2.visibility = View.VISIBLE
     }
 
     /**
@@ -165,13 +179,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupHeader() {
+    // Use a simplified setup for text styles to avoid compilation issues if applyTextStyles is complex or missing
+    private fun applyTextStyles() {
         val tvWelcome = findViewById<TextView>(R.id.tvWelcome)
-        // Set text to "Welcome" (Capitalized)
-        tvWelcome.text = "Welcome"
+        val tvSubtitle = findViewById<TextView>(R.id.tvSubtitle)
 
-        // Condensed font simulation
-        tvWelcome.textScaleX = 0.9f
+        // Ensure fonts are available or use defaults
+        try {
+            val typefaceWelcome = android.graphics.Typeface.create("serif", android.graphics.Typeface.ITALIC)
+            tvWelcome.typeface = typefaceWelcome
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         // Apply Linear Gradient Shader to text
         val paint = tvWelcome.paint

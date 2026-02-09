@@ -46,6 +46,17 @@ class GalleryView @JvmOverloads constructor(    context: Context,
     private val entranceAnimator: IEntranceAnimator = DefaultEntranceAnimator()
     private val textEffectController: ITextEffectController = GradientTextEffectController()
 
+    // 滚动监听器接口
+    interface OnScrollListener {
+        fun onScroll(position: Int, positionOffset: Float, currentItem: GalleryItem?, nextItem: GalleryItem?)
+    }
+
+    private var onScrollListener: OnScrollListener? = null
+
+    fun setOnScrollListener(listener: OnScrollListener) {
+        this.onScrollListener = listener
+    }
+
     private val viewPager: ViewPager2 = ViewPager2(context)
     
     // 标题视图，用于实现交叉淡入淡出动画
@@ -283,11 +294,14 @@ class GalleryView @JvmOverloads constructor(    context: Context,
         val currentRealIndex = position % galleryItems.size
         val nextRealIndex = (position + 1) % galleryItems.size
 
-        val currentTitle = galleryItems[currentRealIndex].title
-        val nextTitle = galleryItems[nextRealIndex].title
+        val currentItem = galleryItems[currentRealIndex]
+        val nextItem = galleryItems[nextRealIndex]
 
-        textView1.text = currentTitle
-        textView2.text = nextTitle
+        textView1.text = currentItem.title
+        textView2.text = nextItem.title
+
+        // 通知外部监听器
+        onScrollListener?.onScroll(position, positionOffset, currentItem, nextItem)
 
         val density = context.resources.displayMetrics.density
         val translationYMax = TITLE_TRANSLATION_Y_MAX_DP * density 
